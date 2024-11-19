@@ -2,9 +2,34 @@ const fs = require('fs').promises;
 const path = require('path');
 const axios = require('axios');
 const cheerio = require('cheerio');
+const nodemailer = require('nodemailer');
 
 const SCRIPT_DIR = '/home/stefan/dev/sandbox/halo-oglasi-scrape';
 const MEMORY_FILE = path.join(SCRIPT_DIR, 'memory.json');
+
+async function sendEmail(newLinks, emailConfig) {
+  try {
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: emailConfig.email,
+        pass: emailConfig.password
+      }
+    });
+
+    const mailOptions = {
+      from: emailConfig.email,
+      to: emailConfig.email,
+      subject: 'New Halo Oglasi Links',
+      text: `New links found:\n\n${newLinks.join('\n')}`
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log('Email sent successfully');
+  } catch (error) {
+    console.error('Email sending error:', error);
+  }
+}
 
 async function processWebpage() {
   try {
@@ -29,11 +54,18 @@ async function processWebpage() {
 
     const productLinks = $('.product-title a').map((i, el) => $(el).attr('href')).get().map((rel_link) => 'https://www.halooglasi.com' + rel_link);
     
+    const newLinksToNotify = [];
     productLinks.forEach((link) => {
         if (!['new', 'seen', 'removed'].some((status) => memory[status].includes(link))) {
             memory.new.push(link);
+            newLinksToNotify.push(link);
         }
     });
+
+    // Send email if new links found
+    if (newLinksToNotify.length > 0 && memory.email) {
+      await sendEmail(newLinksToNotify, memory.email);
+    }
 
     [...memory.new, ...memory.seen].forEach((knownLink) => {
         if(!productLinks.includes(knownLink)) {
