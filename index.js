@@ -7,10 +7,14 @@ const nodemailer = require('nodemailer');
 const SCRIPT_DIR = '/home/stefan/dev/sandbox/halo-oglasi-scrape';
 const MEMORY_FILE = path.join(SCRIPT_DIR, 'memory.json');
 
-async function sendDiscord(newLinks, webhookUrl) {
-  await axios.post(webhookUrl, {
-      content: `New listings found:\n${newLinks.join('\n')}`
-  });
+async function sendDiscord(newLinks, webhookUrl, userId) {
+  try {
+    return await axios.post(webhookUrl, {
+      content: `New listings found:\n${newLinks.join('\n')}\n\n<@${userId}>`
+    });
+  } catch (error) {
+    console.error('Error sending Discord notification:', error.message);
+  }
 }
 
 async function sendEmail(newLinks, emailConfig) {
@@ -68,11 +72,10 @@ async function processWebpage() {
         }
     });
 
-    // Send email if new links found
-    // if (newLinksToNotify.length > 0 && memory.email) {
+    if (newLinksToNotify.length > 0 && memory.email) {
       await sendEmail(newLinksToNotify, memory.email);
-      await sendDiscord(newLinksToNotify, memory.discord);
-    // }
+      await sendDiscord(newLinksToNotify, memory.discord.webhook, memory.discord.user_id);
+    }
 
     [...memory.new, ...memory.seen].forEach((knownLink) => {
         if(!productLinks.includes(knownLink)) {
