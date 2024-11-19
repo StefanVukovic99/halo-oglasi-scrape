@@ -1,10 +1,20 @@
 const fs = require('fs').promises;
+const path = require('path');
 const axios = require('axios');
 const cheerio = require('cheerio');
 
+const SCRIPT_DIR = '/home/stefan/dev/sandbox/halo-oglasi-scrape';
+const MEMORY_FILE = path.join(SCRIPT_DIR, 'memory.json');
+
 async function processWebpage() {
   try {
-    const memoryData = await fs.readFile('memory.json', 'utf8');
+    // Use absolute path for logging
+    const logFile = path.join(SCRIPT_DIR, 'scraper.log');
+
+    // Ensure script is running from the correct directory
+    process.chdir(SCRIPT_DIR);
+
+    const memoryData = await fs.readFile(MEMORY_FILE, 'utf8');
     const memory = JSON.parse(memoryData);
     memory.time = new Date().toISOString();
 
@@ -17,13 +27,12 @@ async function processWebpage() {
 
     const $ = cheerio.load(html);
 
-    const productLinks = $('.product-title a').map((i, el) => $(el).attr('href')).get().map((rel_link => 'https://www.halooglasi.com' + rel_link));
+    const productLinks = $('.product-title a').map((i, el) => $(el).attr('href')).get().map((rel_link) => 'https://www.halooglasi.com' + rel_link);
+    
     productLinks.forEach((link) => {
         if (!['new', 'seen', 'removed'].some((status) => memory[status].includes(link))) {
             memory.new.push(link);
-            return;
         }
-
     });
 
     [...memory.new, ...memory.seen].forEach((knownLink) => {
@@ -34,20 +43,29 @@ async function processWebpage() {
         }
     });
 
-    await fs.writeFile('memory.json', JSON.stringify(memory, null, 2));
+    await fs.writeFile(MEMORY_FILE, JSON.stringify(memory, null, 2));
+
+    // Optional: Append successful run to log file
+    await fs.appendFile(logFile, `Processed successfully at ${new Date().toISOString()}\n`);
 
     console.log('Web page processed successfully');
   } catch (error) {
-    console.error('Error processing webpage:', error.message);
+    // Log errors to a file instead of just console
+    const logFile = path.join(SCRIPT_DIR, 'error.log');
     
     try {
-      const memoryData = await fs.readFile('memory.json', 'utf8');
+      await fs.appendFile(logFile, `Error at ${new Date().toISOString()}: ${error.message}\n`);
+      
+      const memoryData = await fs.readFile(MEMORY_FILE, 'utf8');
       const memory = JSON.parse(memoryData);
       memory.error = error.message;
-      await fs.writeFile('memory.json', JSON.stringify(memory, null, 2));
+      await fs.writeFile(MEMORY_FILE, JSON.stringify(memory, null, 2));
     } catch (writeError) {
-      console.error('Could not write error to memory.json', writeError);
+      // Fallback error logging
+      await fs.appendFile(logFile, `Critical error: Could not write error details - ${writeError.message}\n`);
     }
+
+    console.error('Error processing webpage:', error.message);
   }
 }
 
