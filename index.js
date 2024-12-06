@@ -41,6 +41,24 @@ async function sendEmail(newLinks, emailConfig) {
   }
 }
 
+async function processTarget(target, url) {
+  switch (target) {
+    case 'Halo Oglasi':
+      return await processHaloOglasi(url);
+    default:
+      throw new Error(`Unknown target: ${target}`);
+  }
+}
+
+async function processHaloOglasi(url) {
+  const response = await axios.get(url);
+  const html = response.data;
+
+  const $ = cheerio.load(html);
+
+  return $('.product-title a').map((i, el) => $(el).attr('href')).get().map((rel_link) => 'https://www.halooglasi.com' + rel_link);
+}
+
 async function processWebpage() {
   try {
     // Use absolute path for logging
@@ -52,25 +70,30 @@ async function processWebpage() {
     const memoryData = await fs.readFile(MEMORY_FILE, 'utf8');
     const memory = JSON.parse(memoryData);
     memory.time = new Date().toISOString();
-
-    if (!memory.target) {
-      throw new Error('No target URL specified in memory.json');
+    
+    if (!memory.targets) {
+      throw new Error('No targets URL specified in memory.json');
     }
 
-    const response = await axios.get(memory.target);
-    const html = response.data;
-
-    const $ = cheerio.load(html);
-
-    const productLinks = $('.product-title a').map((i, el) => $(el).attr('href')).get().map((rel_link) => 'https://www.halooglasi.com' + rel_link);
-    
+    let processedTargets = 0;
     const newLinksToNotify = [];
-    productLinks.forEach((link) => {
-        if (!['new', 'seen', 'removed'].some((status) => memory[status].includes(link))) {
-            memory.new.push(link);
-            newLinksToNotify.push(link);
-        }
-    });
+    const currentLinks = [];
+
+    for (const [target, url] of Object.entries(memory.targets)) {
+      try {
+        const productLinks = await processTarget(target, url);
+        productLinks.forEach((link) => {
+          if (!['new', 'seen', 'removed'].some((status) => memory[status].includes(link))) {
+              memory.new.push(link);
+              newLinksToNotify.push(link);
+          }
+        });
+        currentLinks.push(...productLinks);
+        processedTargets+=1;
+      } catch (error) {
+        console.error(`Error processing target ${target}:`, error.message);
+      }
+    }
 
     if (newLinksToNotify.length > 0 && memory.email) {
       await sendEmail(newLinksToNotify, memory.email);
@@ -78,7 +101,7 @@ async function processWebpage() {
     }
 
     [...memory.new, ...memory.seen].forEach((knownLink) => {
-        if(!productLinks.includes(knownLink)) {
+        if(!currentLinks.includes(knownLink)) {
             memory.new = memory.new.filter((link) => link !== knownLink);
             memory.seen = memory.seen.filter((link) => link !== knownLink);
             memory.removed.push(knownLink);
@@ -88,7 +111,7 @@ async function processWebpage() {
     await fs.writeFile(MEMORY_FILE, JSON.stringify(memory, null, 2));
 
     // Optional: Append successful run to log file
-    await fs.appendFile(logFile, `Processed successfully at ${new Date().toISOString()}\n`);
+    await fs.appendFile(logFile, `Processed ${processedTargets} targets successfully at ${new Date().toISOString()}\n`);
 
     console.log('Web page processed successfully');
   } catch (error) {
