@@ -1,3 +1,4 @@
+// */10 * * * * /home/stefan/.nvm/versions/node/v20.10.0/bin/node /home/stefan/dev/sandbox/halo-oglasi-scrape/index.js
 const fs = require('fs').promises;
 const path = require('path');
 const axios = require('axios');
