@@ -67,7 +67,7 @@ async function process4zida(url) {
 
   const $ = cheerio.load(html);
 
-  return $('[test-data="ad-search-card"] a').map((i, el) => $(el).attr('href')).get().map((rel_link) =>  'https://www.4zida.rs/' + rel_link);
+  return $('[test-data="ad-search-card"] > div:first-child >a').map((i, el) => $(el).attr('href')).get().map((rel_link) =>  'https://www.4zida.rs/' + rel_link);
 }
 
 async function processWebpage() {
@@ -122,7 +122,10 @@ async function processWebpage() {
     await fs.writeFile(MEMORY_FILE, JSON.stringify(memory, null, 2));
 
     // Optional: Append successful run to log file
-    await fs.appendFile(logFile, `Processed ${processedTargets} targets successfully at ${new Date().toISOString()}\n`);
+    await fs.appendFile(
+      logFile, 
+      `${new Date().toISOString()} ${processedTargets} targets ${currentLinks.length} links\n`
+    );
 
     console.log('Web page processed successfully');
   } catch (error) {
