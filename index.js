@@ -45,6 +45,8 @@ async function processTarget(target, url) {
   switch (target) {
     case 'Halo Oglasi':
       return await processHaloOglasi(url);
+    case '4zida':
+      return await process4zida(url);
     default:
       throw new Error(`Unknown target: ${target}`);
   }
@@ -57,6 +59,15 @@ async function processHaloOglasi(url) {
   const $ = cheerio.load(html);
 
   return $('.product-title a').map((i, el) => $(el).attr('href')).get().map((rel_link) => 'https://www.halooglasi.com' + rel_link);
+}
+
+async function process4zida(url) {
+  const response = await axios.get(url);
+  const html = response.data;
+
+  const $ = cheerio.load(html);
+
+  return $('[test-data="ad-search-card"] a').map((i, el) => $(el).attr('href')).get().map((rel_link) =>  'https://www.4zida.rs/' + rel_link);
 }
 
 async function processWebpage() {
