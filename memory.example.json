@@ -1,5 +1,8 @@
 {
-  "target": "https://www.halooglasi.com/nekretnine/...",
+  "targets": {
+    "Halo Oglasi": "https://www.halooglasi.com/nekretnine/izdavanje-stanova?...",
+    "4zida": "https://www.4zida.rs/izdavanje-stanova/..."
+  },
   "email": {
     "email": "example@gmail.com",
     "password": "app password"
